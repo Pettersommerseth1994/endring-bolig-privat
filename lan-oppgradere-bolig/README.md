@@ -1,18 +1,37 @@
-# Lån til å bygge klimavennlig bolig
+# Lån til å oppgradere bolig (privat)
 
-Klikkbar prototype av søknaden om lån i Husbankens selvbetjeningsløsning,
-fra forsiden etter innlogging til innsendt søknad og Min søknad. Versjon 1
-er en gjenskaping av dagens søknad om lån til å bygge miljøvennlig bolig
-(`MiljovennligBoligSoknad`). Versjon 2 bytter tiltakene med klimakravene.
-Laget for å teste flyten fra start til slutt og for å gjøre endringer i den.
+Klikkbar prototype av søknaden om lån til å oppgradere bolig i Husbankens
+selvbetjeningsløsning, fra forsiden etter innlogging til innsendt søknad og
+Min søknad. Den bygger på dagens søknad (`OppgraderingSoknad`) og har
+endringene fra Miro-rammen «Lån til endring av eksisterende bolig (privat)».
 
 - Ingen innlogging. Flyten starter som om man er logget inn med BankID.
 - Ingen backend. Svarene lagres bare i nettleseren.
 - Opplysningene som ellers hentes fra Folkeregisteret, KRR, Skatteetaten,
   Kartverket og renteoppslaget, er oppdiktede testdata.
 - Ingen kildekode, konfigurasjon eller data er kopiert fra Husbankens repo.
-  Tekstene, feltene, vilkårene og feilmeldingene er skrevet av derfra, og
-  illustrasjonene er appens egne.
+  Tekstene, feltene, vilkårene og feilmeldingene er skrevet av derfra.
+
+## De tre veiene
+
+På steget Tiltak velger søkeren hva lånet skal gå til:
+
+| Flyt på tavla | Valg | Steg som kommer etter |
+| --- | --- | --- |
+| 1 | Gjøre boligen mer tilgjengelig | Velg tiltak (tilgjengelighet) |
+| 2 | Mer energieffektiv, forbedre energikarakteren | Velg tiltak (energi) → Energimerke |
+| 3 | Mer energieffektiv, minst 30 prosent lavere energiforbruk | Velg tiltak (energi) → Redusert energiforbruk |
+
+Energiveien har i tillegg et eget steg for kostnader til energirådgiver, og
+egne vedleggskrav. Svar som ikke kvalifiserer, stopper ikke søkeren, men gir
+beskjed om at søknaden mest sannsynlig blir avslått.
+
+## Åpne spørsmål fra tavla
+
+- Lista over energitiltak er en plassholder til Heidi og Svetlana har laget
+  den.
+- Spørsmålet om garasje står på begge «Velg tiltak». Heidi kommer tilbake til
+  om det bare skal være med på tilgjengelighetsveien.
 
 ## Kjør lokalt
 
@@ -22,23 +41,14 @@ Fra rota av repoet:
 python3 -m http.server 4321
 ```
 
-Åpne så <http://localhost:4321/lan-miljovennlig-bolig/>.
+Åpne så <http://localhost:4321/lan-oppgradere-bolig/>.
 
-## Versjonene
+## Endringene
 
-Boksen «Versjoner» lar deg hoppe mellom versjonene, på samme side.
-Bryteren «Vis endringene» markerer det som er endret, og punktene i lista
-tar deg til riktig side og riktig steg. Boksen er den samme som i
-papirsøknadene, og lista står i [`assets/versjoner.js`](assets/versjoner.js),
-sammen med hvordan du legger til en ny versjon.
-
-| Versjon | Mappe | Hva som endret seg |
-| --- | --- | --- |
-| 1, 28. september 2026 | `v1/` | Dagens søknad om lån til å bygge miljøvennlig bolig, gjenskapt. |
-| 2, 29. september 2026 | denne mappa | Klimavennlig i stedet for miljøvennlig. Oppvarmet kjeller erstatter tiltak og sertifikat, og det er nye steg for klimagassavtrykk, klimagassbudsjett etter NS 3720:2018 og kostnader til klimarådgivning. BTA i stedet for BRA-i, advarsel fra 1000 kvadratmeter, og klimabudsjettet som vedlegg. |
-
-Den siste versjonen ligger alltid rett i `lan-miljovennlig-bolig/`, så lenker
-som er delt ut peker på det nyeste. Hver versjon lagrer svarene sine for seg.
+Boksen «Versjoner» har én versjon, «Endringer fra Miro». Bryteren «Vis
+endringene» markerer det som er endret fra dagens søknad, og punktene i lista
+tar deg til riktig side og riktig steg. Lista står i
+[`assets/versjoner.js`](assets/versjoner.js).
 
 ## Testpersoner
 
@@ -96,17 +106,15 @@ Typene som finnes er `janei`, `radio`, `avkrysning`, `tekstfelt`, `tall`,
 
 ## Stegene
 
-Kontaktinformasjon → Medlåntaker → Tiltak (oppvarmet kjeller) →
-Klimagassavtrykk → Klimagassbudsjett → Gårds- og bruksnummer → Eiendommen →
-Boligen → Byggeprosjektet → Prosjektkostnader → Kjøp av tomten → Utendørs
-arbeid → Byggekostnader → Kostnader til klimagassregnskap og -budsjett →
-Prosjektering, gebyrer og avgifter → Lånekostnader → Buffer → Totale prosjektkostnader → Lån og
-egenkapital → Lånetype og nedbetaling → Barn → Utgifter i husholdningen → Din
-personlige økonomi → Din familiesituasjon → Dine inntekter → Eiendom du eier →
-Din gjeld → Vedlegg og andre opplysninger → Oppsummering.
-
-Steg som ikke gjelder, hoppes over, akkurat som i dag. «Kjøp av tomten» vises
-for eksempel bare når søkeren eier tomten eller skal kjøpe den.
+Kontaktinformasjon → Medlåntaker → Tiltak → Velg tiltak (tilgjengelighet
+eller energi) → Energimerke eller Redusert energiforbruk (bare energi) →
+Gårds- og bruksnummer → Eiendommen → Boligen → Byggeprosjektet →
+Prosjektkostnader → Oppgraderingskostnader → Utendørs arbeid → Kostnader til
+energirådgiver (bare energi) → Prosjektering, gebyrer og avgifter →
+Lånekostnader → Buffer → Totale prosjektkostnader → Lån og egenkapital →
+Lånetype og nedbetaling → Barn → Utgifter i husholdningen → Din personlige
+økonomi → Din familiesituasjon → Dine inntekter → Eiendom du eier → Din gjeld →
+Vedlegg og andre opplysninger → Oppsummering.
 
 ## Avvik fra dagens løsning
 

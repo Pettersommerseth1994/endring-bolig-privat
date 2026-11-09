@@ -54,9 +54,13 @@ function gjennomgaa(elementer, x, cb, foreldreSynlig = true, sti = 'e') {
 
 /* ═══ Skjulte felt tømmes, og kommer tilbake om de blir synlige ══════ */
 
+/* Et felt kan stå i flere steg, som garasjen i begge «Velg tiltak».
+   Det tømmes bare når det er skjult i alle stegene det står i. */
 function rens() {
   for (let runde = 0; runde < 4; runde++) {
     let endret = false;
+    const synlige = new Set();
+    const alle = new Set();
     for (const s of SKJEMA_STEG) {
       if (s.utkast) continue;
       gjennomgaa(s.elementer, D, (el, vis) => {
@@ -67,13 +71,16 @@ function rens() {
           return;
         }
         if (!FELTTYPER.includes(el.type) || !el.felt) return;
-        const synlig = vis && stegSynlig(s);
-        if (!synlig && el.felt in D) {
-          M.backup[el.felt] = D[el.felt]; delete D[el.felt]; endret = true;
-        } else if (synlig && !(el.felt in D) && el.felt in M.backup) {
-          D[el.felt] = M.backup[el.felt]; delete M.backup[el.felt]; endret = true;
-        }
+        alle.add(el.felt);
+        if (vis && stegSynlig(s)) synlige.add(el.felt);
       });
+    }
+    for (const felt of alle) {
+      if (!synlige.has(felt) && felt in D) {
+        M.backup[felt] = D[felt]; delete D[felt]; endret = true;
+      } else if (synlige.has(felt) && !(felt in D) && felt in M.backup) {
+        D[felt] = M.backup[felt]; delete M.backup[felt]; endret = true;
+      }
     }
     if (!endret) break;
   }
@@ -193,7 +200,7 @@ function feltHtml(el, x) {
     case 'radio':
       return `<fieldset class="lan-felt" data-felt="${el.felt}" data-type="radio" ${aria}>
         <legend>${label}</legend>${beskrivelse}
-        <div class="lan-valgliste">${valgliste(el.valg, 'radio', k => v === k)}</div>${feil}</fieldset>`;
+        <div class="lan-valgliste${el.rad ? ' lan-valgliste--rad' : ''}">${valgliste(el.valg, 'radio', k => v === k)}</div>${feil}</fieldset>`;
     case 'avkrysning':
       return `<fieldset class="lan-felt" data-felt="${el.felt}" data-type="avkrysning" ${aria}>
         <legend>${label}</legend>${beskrivelse}

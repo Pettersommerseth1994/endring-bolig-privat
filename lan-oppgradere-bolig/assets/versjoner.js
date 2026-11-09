@@ -3,7 +3,7 @@
 
    Samme boks som i papirsøknadene (../../assets/js/versjoner.js), men
    for en flyt med mange sider. Hver versjon er en egen mappe. Den siste
-   ligger rett i lan-miljovennlig-bolig/, så lenker som er delt ut peker på
+   ligger rett i lan-oppgradere-bolig/, så lenker som er delt ut peker på
    det nyeste, og de eldre ligger frosset i v1/, v2/ og så videre. Alle
    versjonene laster denne fila, så lista står ett sted.
 
@@ -28,31 +28,30 @@
 const LAN_VERSJONER = [
   {
     nr: 1,
-    navn: 'Dagens løsning',
-    dato: '28. september 2026',
-    mappe: 'v1/'
-  },
-  {
-    nr: 2,
-    navn: 'Klimavennlig bolig',
-    dato: '29. september 2026',
+    navn: 'Endringer fra Miro',
+    dato: '9. november 2026',
     mappe: '',
     endringer: [
-      { side: 'hva-vil-du-soke-om.html', tekst: 'Lånet heter nå «Lån til å bygge klimavennlig bolig», med ny tekst om Husbankens klimakrav.' },
-      { side: 'informasjon.html', tekst: 'Miljøvennlig er byttet med klimavennlig i tittelen og ellers i hele søknaden.' },
-      { side: 'informasjon.html', tekst: 'Lånet er for boliger med lavt klimagassavtrykk, ikke lavt energiforbruk.' },
-      { side: 'informasjon.html', tekst: 'Ny: «Dette skal til for å få lånet», med plassholdertekst.' },
-      { side: 'informasjon.html', tekst: 'Klimabudsjett er lagt til i dokumentasjonen. Avsnittet om fleksibel planløsning er tatt ut.' },
-      { side: 'soknad.html', steg: 'tiltak', tekst: 'Ny ingress: vi må vite om kjelleren er oppvarmet.' },
-      { side: 'soknad.html', steg: 'tiltak', tekst: 'Ny gul varselboks om at grenseverdiene avhenger av kjelleren.' },
-      { side: 'soknad.html', steg: 'tiltak', tekst: 'Oppvarmet kjeller erstatter valget mellom tiltak og sertifikat. Stegene «Velg tiltak» er borte.' },
-      { side: 'soknad.html', steg: 'klimagassavtrykk', tekst: 'Nytt steg: klimagassavtrykk, med advarsel over 179, eller 232 med oppvarmet kjeller.' },
-      { side: 'soknad.html', steg: 'klimagassbudsjett', tekst: 'Nytt steg: klimagassbudsjett etter NS 3720:2018, med advarsel hvis det mangler.' },
-      { side: 'soknad.html', steg: 'boligsteg', tekst: 'BTA i stedet for BRA-i, og advarsel fra 1000 kvadratmeter.' },
-      { side: 'soknad.html', steg: 'prosjektkostnadersteg', tekst: 'Klimarådgivning er med i prosjektkostnadene, bufferen og totalen.' },
-      { side: 'soknad.html', steg: 'klimaraadgivningsteg', tekst: 'Nytt steg: kostnader til klimagassregnskap og -budsjett.' },
-      { side: 'soknad.html', steg: 'vedleggsteg', tekst: 'Klimabudsjettet lastes opp her. Dokumentasjonen på byggeprosjektet kreves nå alltid.' },
-      { side: 'soknad.html', steg: 'klimagassavtrykk', tekst: 'Ny forklaring: «Dette er kg CO₂-ekv./m² BTA», med utregning og eksempel.' }
+      { side: 'hva-vil-du-soke-om.html', tekst: 'Ny tekst på kortet «Lån til å oppgradere bolig», etter kommentaren «Dårlig setning».' },
+      { side: 'informasjon.html', tekst: 'Lånet er for å gjøre boligen mer energieffektiv eller mer tilgjengelig.' },
+      { side: 'informasjon.html', tekst: 'Ny: prosjektkostnadene må være minst 2G.' },
+      { side: 'informasjon.html', tekst: '«Velg riktig lån»: eksemplet om yttertak, yttervegger og heis er tatt ut.' },
+      { side: 'soknad.html', steg: 'tiltak', tekst: 'Ny ingress: søk om lån til enten tilgjengelighet eller energieffektivisering.' },
+      { side: 'soknad.html', steg: 'tiltak', tekst: 'Ny tekst i «Dette er kravene for å få lån».' },
+      { side: 'soknad.html', steg: 'tiltak', tekst: 'Velg tilgjengelighet eller energi, i stedet for de tre gamle valgene.' },
+      { side: 'soknad.html', steg: 'tiltaktilgjengelighet', tekst: 'Flyt 1: nye tilgjengelighetstiltak, og «Annet» med fritekst. Dokumentasjonen er som i dag.' },
+      { side: 'soknad.html', steg: 'tiltakenergi', tekst: 'Flyt 2 og 3: velg bedre energikarakter eller minst 30 prosent lavere energiforbruk, med forklaring av forskjellen.' },
+      { side: 'soknad.html', steg: 'tiltakenergi', tekst: 'Energirådgiver er anbefalt ved energikarakter og påkrevd ved 30 prosent.' },
+      { side: 'soknad.html', steg: 'tiltakenergi', tekst: 'Forslag til energitiltak å krysse av, og «Annet» med fritekst. Lista er en plassholder til Heidi og Svetlana har laget den.' },
+      { side: 'soknad.html', steg: 'tiltakenergi', tekst: 'Dokumentasjonen følger valget mellom energikarakter og 30 prosent.' },
+      { side: 'soknad.html', steg: 'energimerkesteg', tekst: 'Flyt 2: justert tekst, og sjekk av at energikarakteren blir god nok. Søkeren stoppes ikke, men får beskjed om mulig avslag.' },
+      { side: 'soknad.html', steg: 'energiforbruksteg', tekst: 'Flyt 3, nytt steg: hvor mange prosent lavere energiforbruk, med beskjed om mulig avslag under 30 prosent.' },
+      { side: 'soknad.html', steg: 'prosjektkostnadersteg', tekst: 'Energirådgiver er med i lista over kostnader på energiveien.' },
+      { side: 'soknad.html', steg: 'oppgraderingskostnader', tekst: 'Hjelpetekst om at alle kostnader bør oppgis, og at saksbehandleren vurderer de andre kostnadene.' },
+      { side: 'soknad.html', steg: 'oppgraderingskostnader', tekst: 'Nytt: andre oppgraderinger samtidig, med beløp og fritekst.' },
+      { side: 'soknad.html', steg: 'energiraadgivningsteg', tekst: 'Nytt steg på energiveien: kostnader til energirådgiver.' },
+      { side: 'soknad.html', steg: 'totaleprosjektkostnader', tekst: 'Andre oppgraderinger og energirådgiver er med i totalen og bufferen.' },
+      { side: 'informasjon.html', tekst: 'Energiattest, uttalelse fra energirådgiver og effektregnskap etter NS 3031:2025 er nye vedlegg, etter valget.' }
     ]
   }
 ];

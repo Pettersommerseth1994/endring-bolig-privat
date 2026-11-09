@@ -3,7 +3,7 @@
    informasjonssiden, kvitteringen og Min søknad.
    ────────────────────────────────────────────────────────────────── */
 
-const IKKE_MED = 'Denne ordningen er ikke med i prototypen. Bare «Lån til å bygge klimavennlig bolig» er laget.';
+const IKKE_MED = 'Denne ordningen er ikke med i prototypen. Bare «Lån til å oppgradere bolig» er laget.';
 
 function ordningskort(href, bilde, tittel, tekst, niva, endret) {
   const ikkeMed = href === '#' ? ` data-ikke-med="${IKKE_MED}"` : '';
@@ -25,9 +25,9 @@ function hvaVilDuInnhold(niva) {
     </div>
     <${h} class="lan-h4">Lån</${h}>
     <div class="lan-ordningsliste">
-      ${ordningskort('informasjon.html', 'illustrasjon-miljovennlig-kompakt.svg', 'Lån til å bygge klimavennlig bolig', 'For deg som vil søke om lån til oppføring av boliger som følger Husbankens klimakrav.', niva + 1, 1)}
+      ${ordningskort('#', 'illustrasjon-miljovennlig-kompakt.svg', 'Lån til å bygge klimavennlig bolig', 'For deg som skal bygge en bolig med godt inneklima og lite utslipp av klimagasser.', niva + 1)}
       ${ordningskort('#', 'illustrasjon-livslop-kompakt.svg', 'Lån til å bygge bolig med livsløpsstandard', 'For deg som skal bygge en bolig tilpasset ulike faser i livet.', niva + 1)}
-      ${ordningskort('#', 'illustrasjon-oppgradere-kompakt.svg', 'Lån til å oppgradere bolig', 'For deg som skal oppgradere boligen med betydelig lavere energiforbruk og god tilgjengelighet.', niva + 1)}
+      ${ordningskort('informasjon.html', 'illustrasjon-oppgradere-kompakt.svg', 'Lån til å oppgradere bolig', 'For deg som skal gjøre boligen mer energieffektiv eller mer tilgjengelig.', niva + 1, 1)}
       ${ordningskort('#', 'illustrasjon-debitor-kompakt.svg', 'Lån til å kjøpe nybygget bolig', 'For deg som skal kjøpe en bolig i et prosjekt som er godkjent av Husbanken.', niva + 1)}
     </div>
     <${h} class="lan-h4" style="margin-bottom:var(--space-2)">Se også</${h}>
@@ -126,22 +126,35 @@ function informasjon() {
   lanMonter();
   const fornavn = lanPerson().fornavn;
   document.getElementById('side').innerHTML = `
-    ${brodsmuler([['hva-vil-du-soke-om.html', 'Hva vil du søke om?'], [null, 'Bygge klimavennlig bolig']])}
-    <h1 class="lan-h1" style="margin-top:var(--space-4)" data-endret="2">Søk om lån til å bygge klimavennlig bolig</h1>
+    ${brodsmuler([['hva-vil-du-soke-om.html', 'Hva vil du søke om?'], [null, 'Oppgradere bolig']])}
+    <h1 class="lan-h1" style="margin-top:var(--space-4)">Søk om lån til å oppgradere bolig</h1>
 
     <div class="lan-guide lan-guide--stor">
       <img src="img/hb-avatar-poster.svg" alt="">
       <p class="lan-guide__hei">Hei, ${lanEsc(fornavn)}!</p>
-      <p data-endret="3">Dette lånet er for deg som skal bygge bolig med lavt klimagassavtrykk.</p>
+      <p data-endret="2">Dette lånet er for deg som skal oppgradere boligen din, enten for å gjøre den mer energieffektiv eller for å gjøre den mer tilgjengelig.</p>
       <div class="lan-panel lan-panel--bla">
         <p class="lan-fet" style="font-size:var(--text-lg)">Viktig informasjon til deg som vil søke</p>
         <ul class="lan-mb0">
-          <li>Du kan ikke få lån hvis byggingen allerede har startet. Grunnarbeid, som støping av såle, er tillatt, men grunnmuren kan ikke være oppført.</li>
+          <li>Du kan ikke få lån hvis byggingen allerede har startet.</li>
           <li>Byggearbeidet må starte senest seks måneder etter at lånet er innvilget.</li>
+          <li data-endret="3">Prosjektkostnadene må være minst 2G, altså to ganger ${ekstern('https://www.nav.no/grunnbelopet', 'grunnbeløpet i folketrygden')}.</li>
           <li>Lånet kan ikke brukes til refinansiering.</li>
+          <li>Vi gir ikke lån til vanlig vedlikehold eller oppussing.</li>
         </ul>
       </div>
-      <p class="lan-mb0"><a href="https://www.husbanken.no/" target="_blank" rel="noopener">Mer om dette lånet (åpnes i ny fane)</a></p>
+      <p class="lan-mb0"><a href="https://www.husbanken.no/person/lan-fra-husbanken/oppgradering/" target="_blank" rel="noopener">Mer om dette lånet (åpnes i ny fane)</a></p>
+    </div>
+
+    <div class="lan-panel lan-panel--lilla" style="margin-top:var(--space-6)">
+      <h2 class="lan-h3">Velg riktig lån</h2>
+      <p>Disse to lånene blir ofte forvekslet. Sjekk hvilket lån som passer for deg.</p>
+      <p class="lan-fet lan-mb0">Startlån og tilskudd fra kommunen</p>
+      <p>Dette lånet er for deg som skal tilpasse boligen på grunn av alder eller nedsatt funksjonsevne, og ikke får lån i en vanlig bank. I noen kommuner kan du kombinere startlånet med et tilskudd.</p>
+      <p>${ekstern('https://husbanken.no/person/startlaan/soke-startlaan-og-tilskudd/', 'Gå til startlån og tilskudd')}</p>
+      <p class="lan-fet lan-mb0">Lån til å oppgradere bolig</p>
+      <p data-endret="4">Dette lånet er for deg som skal gjøre større oppgraderinger som gjør boligen mer energieffektiv eller mer tilgjengelig.</p>
+      <p class="lan-mb0">Les videre hvis det er denne typen oppgradering du skal søke om lån til.</p>
     </div>
 
     <h2 class="lan-h2">Før du søker</h2>
@@ -154,31 +167,32 @@ function informasjon() {
 
     <div style="margin:var(--space-6) 0">
       <hr class="lan-skille">
-      <div data-endret="4">${lanLesMer('Dette skal til for å få lånet', `
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer vitae justo eget magna fermentum iaculis. Sed viverra tellus in hac habitasse platea dictumst. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Nunc sed augue lacus viverra vitae congue eu consequat.</p>`)}</div>
-      <hr class="lan-skille">
       ${lanLesMer('Vi henter og bruker personopplysninger om deg', `
         <p>Husbanken kan innhente og behandle personopplysninger som er nødvendige for å saksbehandle og forvalte våre lån- og tilskuddsordninger, jf. § 10 i Husbankloven. Opplysningene kan også brukes til forskning, statistikk og analyse, test/feilretting og til å kontrollere innvilgede lån/tilskudd.</p>
-        <p>For mer informasjon om behandlingen av personopplysninger, herunder retten til å klage (forvaltningsloven § 14), hvilke kilder opplysningene blir hentet fra og hva de skal brukes til, <a href="https://www.husbanken.no/om-husbanken/personvern/" target="_blank" rel="noopener">les mer på husbanken.no</a>. Her får du også informasjon om din rett til innsyn, retting, sletting mv. I tillegg får du kontaktopplysninger til personvernombud, informasjon om utlevering av opplysningene, oppbevaringstid for opplysningene mv.</p>`)}
+        <p>For mer informasjon om behandlingen av personopplysninger, herunder retten til å klage (forvaltningsloven § 14), hvilke kilder opplysningene blir hentet fra og hva de skal brukes til, <a href="https://www.husbanken.no/person/lan-fra-husbanken/personvern-personliglanetaker/" target="_blank" rel="noopener">les mer på husbanken.no</a>. Her får du også informasjon om din rett til innsyn, retting, sletting mv. I tillegg får du kontaktopplysninger til personvernombud, informasjon om utlevering av opplysningene, oppbevaringstid for opplysningene mv.</p>`)}
       <hr class="lan-skille">
       ${lanLesMer('Slik søker du sammen med noen', `
         <p>Når du fyller ut søknaden, legger du til de du skal søke sammen med. Disse blir medlåntakere og vil ha like stort ansvar for lånet som deg.</p>
         <p>Når søknaden er sendt inn, får medlåntakere en SMS der vi ber de logge inn og bekrefte om de vil være med på lånet. Vi kan først behandle søknaden når alle har sagt ja.</p>
-        <p>Hvis en av dere ikke kan logge på med BankID, må alle <a href="https://www.husbanken.no/" target="_blank" rel="noopener">søke på papir</a>.</p>`)}
+        <p>Hvis en av dere ikke kan logge på med BankID, må alle <a href="https://husbanken.no/person/lan-fra-husbanken/oppgradering/" target="_blank" rel="noopener">søke på papir</a>.</p>`)}
       <hr class="lan-skille">
       ${lanLesMer('Dokumentasjon du må laste opp', `
-        <p>Du må laste opp følgende dokumentasjon på byggeprosjektet:</p>
-        <ul><li>Rammetillatelse eller igangsettingstillatelse fra kommunen</li><li data-endret="5">Klimabudsjett</li><li>Fasade-, snitt- og plantegninger</li><li>Situasjonsplan</li><li>Byggebeskrivelse</li><li>Kontrakt eller avtale med entreprenør</li></ul>
+        <p>Du må laste opp følgende dokumentasjon på prosjektet:</p>
+        <ul><li>Fasade-, snitt- og plantegninger</li><li>Byggebeskrivelse</li></ul>
+        <p>Hvilken annen dokumentasjon du må laste opp, kommer an på hva du skal oppgradere:</p>
+        <ul data-endret="20">
+          <li>Situasjonsplan, kontrakt eller avtale med entreprenør, og rammetillatelse eller igangsettingstillatelse fra kommunen (hvis du skal gjøre boligen mer tilgjengelig)</li>
+          <li>Energiattest for boligen (hvis du skal forbedre energikarakteren)</li>
+          <li>Uttalelse fra energirådgiver og effektregnskap etter NS 3031:2025 (hvis du skal redusere energiforbruket med minst 30 prosent)</li>
+        </ul>
         <p>Du må også dokumentere egenkapital og gjeld. Ut fra hva du svarer i søknaden, kan du bli bedt om å laste opp:</p>
         <ul>
           <li>Kontoutskrift eller bilde fra nettbanken som viser egenkapital</li>
           <li>Betalingsplan eller bilde fra nettbanken som viser gjelden, renten på lånet og terminbeløpet (hvis du har lån)</li>
-          <li>Verdivurdering eller e-takst (hvis du selger eiendom for å finansiere byggingen)</li>
-          <li>Lånedokument fra banken (hvis du tar opp et annet lån for å finansiere byggingen)</li>
+          <li>Verdivurdering eller e-takst (hvis du selger eiendom for å finansiere oppgraderingen)</li>
+          <li>Lånedokument fra banken (hvis du tar opp et annet lån for å finansiere oppgraderingen)</li>
           <li>Erklæring fra giveren (hvis du får gave eller forskudd på arv)</li>
-        </ul>
-        <p>Hvis du ikke eier tomten må du laste opp:</p>
-        <ul><li>Utkast til kjøpekontrakt eller festeavtale (hvis du skal kjøpe eller feste tomten)</li><li>Festeavtale (hvis tomten er festet)</li></ul>`)}
+        </ul>`)}
       <hr class="lan-skille">
     </div>
 
@@ -246,7 +260,7 @@ function minSoknad() {
   document.getElementById('side').innerHTML = `
     ${brodsmuler([[null, 'Min søknad']])}
     <div class="lan-illustrasjonspanel">
-      <img src="img/miljovennlig.svg" alt="Illustrasjon av en bolig med et tre ved siden av">
+      <img src="img/illustrasjon-oppgradere-kompakt.svg" alt="Illustrasjon av en person som bærer en planke">
       <div>
         <h1 class="lan-h1">${LAN_SKJEMANAVN}</h1>
         <dl class="lan-metadata"><div><dt>Sendt</dt><dd>${lanDato(sendt)}</dd></div></dl>

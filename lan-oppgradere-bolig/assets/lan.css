@@ -144,6 +144,8 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }
 .lan-panel--bla { background: var(--lan-bla); border-radius: var(--radius-xl); }
 .lan-panel--gronn { background: var(--lan-gronn); border-radius: var(--radius-xl); }
 .lan-panel--gul { background: var(--lan-gul); border-radius: var(--radius-xl); }
+/* «Velg riktig lån» på informasjonssiden */
+.lan-panel--lilla { background: rgb(237, 228, 248); border-radius: var(--radius-xl); }
 .lan-panel--rod { background: var(--lan-rod); border-radius: var(--radius-xl); }
 /* Gult varsel med trekant, som callout--warn i papirsøknaden */
 .lan-panel--varsel { background: rgb(255, 244, 224); border-radius: var(--radius-xl); }
@@ -220,6 +222,8 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus { outline: none; }
 .lan-valg__tekst { display: flex; flex-direction: column; }
 .lan-valg__beskrivelse { color: var(--lan-sekundaer); font-size: var(--text-sm); line-height: var(--lh-sm); }
 .lan-valgliste { margin-top: var(--space-1); }
+/* Korte valg på én linje, som energikarakteren A til G */
+.lan-valgliste--rad { display: flex; flex-wrap: wrap; column-gap: var(--space-4); }
 
 .lan-felt--feil .lan-input, .lan-felt--feil .lan-textarea, .lan-felt--feil .lan-select {
   border: 2px solid var(--lan-feil);

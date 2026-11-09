@@ -1,9 +1,11 @@
 /* ──────────────────────────────────────────────────────────────────
-   Stegene i «Søknad om lån til å bygge klimavennlig bolig»
+   Stegene i «Søknad om lån til å oppgradere bolig» for privatpersoner
 
-   Bygget på MiljovennligBoligSoknad i dagens løsning. I versjon 2 er
-   tiltakene og sertifikatene byttet med klimakravene: oppvarmet kjeller,
-   klimagassavtrykk og klimagassbudsjett. Det er her du endrer flyten.
+   Bygget på OppgraderingSoknad i dagens løsning, med endringene fra
+   Miro-tavla «Lån til endring av eksisterende bolig (privat)». Søkeren
+   velger tilgjengelighet (flyt 1) eller energi, og energi deles i bedre
+   energikarakter (flyt 2) og minst 30 prosent lavere energiforbruk
+   (flyt 3). Det er her du endrer flyten.
    Hvert steg er et objekt:
 
      id, tittel        Stegets id i URL-en og overskriften
@@ -39,19 +41,61 @@ const mobilGyldig = v => (String(v).replace(/\s/g, '').length !== 8 || !/^[49]\d
 
 const heltall = v => /^\d+$/.test(String(v).replace(/\s/g, ''));
 
-/* Grenseverdien for klimagassavtrykket er det høyeste tallet som
-   kvalifiserer, og den er høyere når kjelleren er oppvarmet. */
-const CO2_ENHET = 'kg CO₂-ekv./m² BTA';
-const co2Grense = d => (d['bolig.oppvarmetkjeller'] === true ? 232 : 179);
+/* Veiene gjennom søknaden. Flytnumrene er de samme som på Miro-tavla. */
+const erTilgjengelighet = d => d.tiltak === 'TILTAK_TILGJENGELIGHET';
+const erEnergi = d => d.tiltak === 'TILTAK_ENERGI';
+const erEnergikarakter = d => erEnergi(d) && d.energivei === 'ENERGIVEI_KARAKTER';
+const erEnergiforbruk = d => erEnergi(d) && d.energivei === 'ENERGIVEI_FORBRUK';
+const tiltakstype = d => (erEnergi(d) ? 'energieffektivisering' : 'tilgjengelighetstiltak');
+
+/* Garasje gis bare til den som får bilstønad fra Nav */
+const harGarasje = d => d['bolig.oenskergarasje'] === true && d['bolig.mottarstoettenavbil'] === true;
+
+/* Spørsmålene om garasje står på «Velg tiltak» i både flyt 1 og energiveien.
+   Om de skal være med på energiveien også, er et åpent spørsmål på tavla. */
+const garasjeElementer = () => [
+  { type: 'tekst', html: '<p>Hvis du har nedsatt funksjonsevne og mottar bilstønad fra Nav, kan du søke om at lånet også dekker bygging av garasje.</p>' },
+  { type: 'janei', felt: 'bolig.oenskergarasje', label: 'Ønsker {du} å søke om lån til å bygge garasje?',
+    beskrivelse: 'Du må kunne dokumentere at du mottar bilstønad fra Nav.', feil: 'Velg om {du} ønsker å søke om lån til å bygge garasje.' },
+  { type: 'janei', felt: 'bolig.mottarstoettenavbil', synlig: d => d['bolig.oenskergarasje'] === true,
+    label: 'Får du bilstønad fra Nav?', nei: 'Nei, det er ikke aktuelt for meg', feil: 'Velg om du får bilstønad fra Nav.' },
+  { type: 'panel', variant: 'gul', synlig: d => d['bolig.mottarstoettenavbil'] === false,
+    html: '<p class="lan-fet lan-mb0">Du kan ikke få lån til å bygge garasje</p><p>Kun mottakere av bilstønad fra Nav kan søke om lån til å bygge garasje samtidig med lån til å oppgradere boligen.</p>' }
+];
 
 const EIERSKAP = [
   { v: 'EIERSKAP_TOMT_JA', l: 'Ja, {jeg} eier tomten' },
   { v: 'EIERSKAP_TOMT_HAR_FESTEAVTALE', l: 'Nei, {jeg} har en festeavtale på tomten' },
-  { v: 'EIERSKAP_TOMT_FREMTIDIG_FESTEAVTALE', l: 'Nei, men {jeg} skal feste tomten' },
-  { v: 'EIERSKAP_TOMT_FREMTIDIG_KJOEP', l: 'Nei, men {jeg} skal kjøpe tomten' },
   { v: 'EIERSKAP_TOMT_ANNET', l: 'Annet' }
 ];
-const kjoeperTomt = d => ['EIERSKAP_TOMT_JA', 'EIERSKAP_TOMT_FREMTIDIG_KJOEP'].includes(d.eierskaptomt);
+
+/* Energikarakteren går fra A, som er best, til G. Boligen må ha C eller
+   dårligere i dag. C, D og E må bli minst én karakter bedre, F og G minst
+   to. Et svar som ikke holder, stopper ikke søkeren, men gir beskjed om at
+   søknaden mest sannsynlig blir avslått. */
+const KARAKTERER = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+const KARAKTERVALG = [...KARAKTERER.map(k => ({ v: k, l: k })), { v: 'VET_IKKE', l: 'Vet ikke' }];
+
+function energikarakterAvvik(d) {
+  const foer = d['energi.karakterfoer'];
+  const etter = d['energi.karakteretter'];
+  if (!foer || !etter) return null;
+  if (foer === 'VET_IKKE' || etter === 'VET_IKKE') {
+    return 'Vi trenger energikarakteren før og etter oppgraderingen for å vurdere søknaden. En energirådgiver kan hjelpe {deg} med å finne den.';
+  }
+  const fra = KARAKTERER.indexOf(foer);
+  const til = KARAKTERER.indexOf(etter);
+  if (fra <= 1) return `Boligen har energikarakter ${foer} i dag. Vi gir bare lån til boliger som har energikarakter C eller dårligere før oppgraderingen.`;
+  const krav = fra >= 5 ? 2 : 1;
+  if (fra - til < krav) {
+    return `Boliger med energikarakter ${foer} må bli minst ${krav === 2 ? 'to karakterer' : 'én karakter'} bedre, altså ${KARAKTERER[fra - krav]} eller bedre etter oppgraderingen.`;
+  }
+  return null;
+}
+
+const avslagPanel = melding => `<div class="lan-panel lan-panel--gul" role="status">
+  <p class="lan-fet lan-mb0">Søknaden blir mest sannsynlig avslått</p>
+  <p>${melding} {Du} kan likevel sende inn søknaden.</p></div>`;
 
 const ANTALL_BILER = [
   { v: 'NONE', l: 'Ingen biler' }, { v: 'ONE', l: '1 bil' }, { v: 'TWO', l: '2 biler' }, { v: '3ORMORE', l: '3 eller flere biler' }
@@ -63,20 +107,20 @@ function bufferUtregning(d) {
   const v = felt => api.num(d[felt]);
   const valgtProsent = { TI_PROSENT: 10, FEM_PROSENT: 5, INGENTING: 0, ANNET: v('kostnader.bufferprosentannet') }[d['kostnader.bufferprosent']];
   const grunnlagFelt = [
-    ['kostnader.utendoersarbeid', 'utendørs arbeid'],
-    ['kostnader.byggehus', 'byggekostnader (hus)'],
+    ['kostnader.oppgradering', 'oppgraderingskostnader'],
+    ['kostnader.andreoppgraderinger', 'andre oppgraderinger'],
     ['kostnader.byggegarasje', 'byggekostnader (garasje)'],
-    ['kostnader.klimaraadgivning', 'klimarådgivning'],
+    ['kostnader.energiraadgivning', 'energirådgiver'],
+    ['kostnader.utendoersarbeid', 'utendørs arbeid'],
     ['kostnader.prosjektering', 'prosjektering, gebyr og avgifter'],
     ['kostnader.laanefinansiering', 'lånekostnader']
   ];
   const bufferGrunnlag = grunnlagFelt.reduce((sum, [f]) => sum + v(f), 0);
-  const tomt = v('kostnader.kjoepesumtomt') + v('kostnader.antattkjoepesumtomt');
   const bufferVerdi = valgtProsent == null ? 0 : Math.round(bufferGrunnlag * (valgtProsent / 100));
   return {
     valgtProsent, bufferVerdi, bufferGrunnlag,
     grunnlagNavn: grunnlagFelt.filter(([f]) => v(f) > 0).map(([, n]) => n),
-    totaleProsjektKostnader: tomt + bufferGrunnlag + bufferVerdi
+    totaleProsjektKostnader: bufferGrunnlag + bufferVerdi
   };
 }
 
@@ -97,45 +141,49 @@ function terminbeloep(d) {
    laste opp». Selve opplastingen skjer i steget Vedlegg.
    ─────────────────────────────────────────────────────────────────── */
 
-/* Dokumentasjonen på byggeprosjektet hang før på tiltakene. Nå som de er
-   borte, kreves den alltid. */
-const alltid = () => true;
+const valgtTiltak = d => !!d.tiltak;
 
 const VEDLEGGSKRAV = [
-  { felt: 'boligkvalitet.fasadeplansnittvedlegg', synlig: alltid,
+  { felt: 'boligkvalitet.fasadeplansnittvedlegg', synlig: valgtTiltak,
     label: 'fasade-, snitt- og plan-tegninger', overskrift: 'Last opp fasade-, snitt- og plantegninger',
     detaljer: ['Tegninger av alle fasader i byggeprosjektet', 'Tegninger av typiske snitt i byggeprosjektet',
       'Plantegninger for alle etasjer i byggeprosjektet'],
     feil: 'Last opp fasade-, snitt- og plantegningene.' },
-  { felt: 'boligkvalitet.situasjonsplanvedlegg', synlig: alltid,
+  { felt: 'boligkvalitet.situasjonsplanvedlegg', synlig: erTilgjengelighet,
     label: 'situasjonsplan', overskrift: 'Last opp situasjonsplanen',
     beskrivelse: 'Situasjonsplanen er et kart som viser bygningen det søkes om, med hovedmålet på bygningen og avstand til nærmeste grense tegnet inn.',
     feil: 'Last opp situasjonsplanen.' },
-  { felt: 'boligkvalitet.byggebeskrivelsevedlegg', synlig: alltid,
+  { felt: 'boligkvalitet.byggebeskrivelsevedlegg', synlig: valgtTiltak,
     label: 'byggebeskrivelse', overskrift: 'Last opp byggebeskrivelsen',
-    beskrivelse: 'En faglig beskrivelse, ofte fra entreprenøren.',
+    beskrivelse: 'En faglig beskrivelse av prosjektet fra den som skal utføre arbeidet.',
     feil: 'Last opp byggebeskrivelsen.' },
-  { felt: 'boligkvalitet.kontraktvedlegg', synlig: alltid,
+  { felt: 'boligkvalitet.kontraktvedlegg', synlig: erTilgjengelighet,
     label: 'kontrakt eller avtale med entreprenør', overskrift: 'Last opp kontrakten eller avtalen med entreprenøren',
     beskrivelse: 'For eksempel avtalen med firmaet som skal gjøre arbeidet eller en entreprise.',
     feil: 'Last opp kontrakten eller avtalen med entreprenøren.' },
-  { felt: 'boligkvalitet.rammetillatelsevedlegg', synlig: alltid,
+  { felt: 'boligkvalitet.rammetillatelsevedlegg', synlig: erTilgjengelighet,
     label: 'rammetillatelse eller igangsettingstillatelse fra kommunen', overskrift: 'Last opp rammetillatelsen eller igangsettingstillatelsen fra kommunen.',
     beskrivelse: 'Før vi kan behandle søknaden, må prosjektet ha fått minst rammetillatelse eller igangsettingstillatelse fra kommunen.',
     feil: 'Last opp rammetillatelsen eller igangsettingstillatelsen fra kommunen.' },
-  { felt: 'klima.klimabudsjettvedlegg', synlig: d => d['klima.harklimabudsjett'] !== false, endret: 14,
-    label: 'klimabudsjett', overskrift: 'Last opp klimabudsjettet',
-    beskrivelse: 'Klimabudsjettet må være laget etter NS 3720:2018.',
-    feil: 'Last opp klimabudsjettet.' },
-  { felt: 'utkastkjopekontraktellerfesteavtalevedlegg',
-    synlig: d => ['EIERSKAP_TOMT_FREMTIDIG_KJOEP', 'EIERSKAP_TOMT_FREMTIDIG_FESTEAVTALE'].includes(d.eierskaptomt),
-    label: d => (d.eierskaptomt === 'EIERSKAP_TOMT_FREMTIDIG_KJOEP' ? 'utkast til kjøpekontrakt' : 'utkast til festeavtale'),
-    overskrift: d => (d.eierskaptomt === 'EIERSKAP_TOMT_FREMTIDIG_KJOEP' ? 'Last opp utkast til kjøpekontrakt' : 'Last opp utkast til festeavtale'),
-    feil: d => (d.eierskaptomt === 'EIERSKAP_TOMT_FREMTIDIG_KJOEP' ? 'Du må laste opp utkast til kjøpekontrakt.' : 'Du må laste opp utkast til festeavtale.') },
+  { felt: 'energi.energiattestvedlegg', synlig: erEnergikarakter, endret: 20,
+    label: 'energiattest for boligen', overskrift: 'Last opp energiattesten for boligen',
+    beskrivelse: 'Energiattesten viser energikarakteren boligen har i dag.',
+    feil: 'Last opp energiattesten for boligen.' },
+  { felt: 'energi.uttalelsevedlegg', synlig: erEnergiforbruk, endret: 20,
+    label: 'uttalelse fra energirådgiver', overskrift: 'Last opp uttalelsen fra energirådgiveren',
+    beskrivelse: 'Uttalelsen viser hvor mye energiforbruket i boligen går ned etter oppgraderingen.',
+    feil: 'Last opp uttalelsen fra energirådgiveren.' },
+  { felt: 'energi.effektregnskapvedlegg', synlig: erEnergiforbruk, endret: 20,
+    label: 'effektregnskap etter NS 3031:2025', overskrift: 'Last opp effektregnskapet',
+    beskrivelse: 'Effektregnskapet må være laget etter NS 3031:2025.',
+    feil: 'Last opp effektregnskapet.' },
+  { felt: 'bolig.mottarstoettenavbilvedlegg', synlig: harGarasje,
+    label: 'dokumentasjon på bilstønad fra Nav', overskrift: 'Last opp dokumentasjon på bilstønad fra Nav',
+    feil: 'Last opp dokumentasjon på bilstønad fra Nav.' },
   { felt: 'festeavtalevedlegg', synlig: d => d.eierskaptomt === 'EIERSKAP_TOMT_HAR_FESTEAVTALE',
     label: 'festeavtale', overskrift: 'Last opp festeavtalen', feil: 'Du må laste opp festeavtalen.' },
   { felt: 'oekonomi.andrelaanfinansieringvedlegg', synlig: d => d['oekonomi.planleggerlaanfraandre'] === true,
-    label: 'dokumentasjon på andre lån som skal finansiere boligen', overskrift: 'Last opp dokumentasjon på andre lån som skal finansiere boligen',
+    label: 'dokumentasjon på andre lån som skal finansiere oppgraderingen', overskrift: 'Last opp dokumentasjon på andre lån som skal finansiere oppgraderingen',
     beskrivelse: 'For eksempel et tilsagnsbrev eller en bekreftelse fra banken, eller fra den som skal gi lånet hvis det er et privat lån, som viser',
     detaljer: ['lånebeløpet', 'renten', 'terminbeløpet'],
     feil: 'Du må laste opp dokumentasjon på andre lån som skal finansiere boligen.' },
@@ -398,61 +446,126 @@ const SKJEMA_STEG = [
     id: 'tiltak',
     tittel: 'Tiltak',
     elementer: [
-      { type: 'ingress', endret: 6, tekst: 'For å kunne søke om lån til å bygge klimavennlig bolig må vi vite om kjelleren er oppvarmet eller ikke.' },
-      { type: 'panel', variant: 'varsel', ikon: LAN_IKON.varsel, endret: 7,
-        html: '<p>Grenseverdiene for å få lån til klimavennlig bolig er forskjellige om prosjektet har oppvarmet kjeller eller ikke.</p>' },
-      { type: 'lesmer', tittel: 'Dette er kravene for å få lån', html: () => `
-        <p>${tx('For å få lån må {du} oppfylle minst 3 av disse tiltakene')}:</p>
+      { type: 'ingress', endret: 5, tekst: '{Du} kan søke om lån til å oppgradere boligen på én av to måter: gjøre den mer tilgjengelig, eller gjøre den mer energieffektiv.' },
+      { type: 'panel', variant: 'gul', ikon: LAN_IKON.varsel,
+        html: `<p>Vi gir ikke lån til vanlig vedlikehold eller oppussing. For mer informasjon, se ${ekstern('https://husbanken.no/bransje/veileder-laan/lan-til-boligkvalitet/oppgradering-av-eksisterende-bolig/', 'Veileder for lån fra Husbanken')}.</p>` },
+      { type: 'lesmer', endret: 6, tittel: 'Dette er kravene for å få lån', html: () => tx(`
+        <p>{Du} må velge mellom å</p>
         <ul>
-          <li>Materialene inneholder maks 0,1 vektprosent helse- og miljøfarlige stoffer</li>
-          <li>Minimum 70 vektprosent blir kildesortert (80 vektprosent for bygg over 300 kvadratmeter)</li>
-          <li>${tx('Det er fleksibilitet i planløsningen, hvor {du} må velge minst 1 av disse')}:
-            <ul><li>Minst ett rom kan deles i to</li><li>To rom kan slås sammen</li><li>Det er mulig å etablere hybel med eget bad og kjøkkenløsning</li></ul></li>
-          <li>Minst 10 forskjellige produkter har miljødokumentasjon</li>
-          <li>Fossilt brensel er ikke brukt til oppvarming og tørk i byggeperioden</li>
+          <li>gjøre boligen mer tilgjengelig, med 1 eller flere av disse tiltakene:
+            <ul><li>Trinnfri adkomstvei</li><li>Oppgradering av inngangsdør eller -parti</li><li>Overbygd inngangsparti med plass til vogn</li>
+              <li>Endret inngangsplan</li><li>Terskelfrie døråpninger</li><li>Tilgjengelig bad</li><li>Andre tiltak som gir bedre tilgjengelighet</li></ul></li>
+          <li>gjøre boligen mer energieffektiv, på en av disse måtene:
+            <ul><li>forbedre energikarakteren. Boligen må ha energikarakter C eller dårligere i dag. Med C, D eller E må den bli minst én karakter bedre, og med F eller G minst to.</li>
+              <li>redusere energiforbruket med minst 30 prosent. En energirådgiver må beregne reduksjonen.</li></ul></li>
         </ul>
-        <p>${tx('Alternativt kan {du} få lån dersom boligen har fått et av disse sertifikatene')}:</p>
-        <ul><li>Svanemerke</li><li>Breeam-NOR, enten:<ul><li>Very good</li><li>Excellent</li><li>Outstanding</li></ul></li></ul>
-        <p>${tx('{Du} må oppbevare dokumentasjon på at kravene er oppfylt i 5 år fra lånet blir utbetalt.')}</p>` },
-      { type: 'tekst', html: `<p class="lan-mt" style="margin-bottom:var(--space-6)">For mer informasjon, se ${ekstern('https://www.husbanken.no/', 'Veileder for lån fra Husbanken')}.</p>` },
-      { type: 'janei', felt: 'bolig.oppvarmetkjeller', endret: 8, label: 'Vil kjelleren være oppvarmet?',
-        feil: 'Velg om kjelleren vil være oppvarmet.' }
+        <p>Hvis {du} har vedtak om bilstønad fra Nav, kan {du} søke om lån til å bygge garasje sammen med de valgte tiltakene.</p>`) },
+      { type: 'radio', felt: 'tiltak', endret: 7, label: 'Hva søker {du} om lån til?', beskrivelse: 'Du velger tiltakene på neste steg.',
+        feil: 'Velg hva {du} søker om lån til.',
+        valg: [
+          { v: 'TILTAK_TILGJENGELIGHET', l: 'Gjøre boligen mer tilgjengelig', b: 'For eksempel trinnfri adkomst, terskelfrie døråpninger eller tilgjengelig bad.' },
+          { v: 'TILTAK_ENERGI', l: 'Gjøre boligen mer energieffektiv', b: 'For eksempel etterisolering, nye vinduer eller varmepumpe.' }
+        ] }
+    ]
+  },
+
+  /* ─── Flyt 1: tilgjengelighet ─────────────────────────────────── */
+  {
+    id: 'tiltaktilgjengelighet',
+    synlig: erTilgjengelighet,
+    tittel: 'Velg tiltak',
+    elementer: [
+      { type: 'avkrysning', felt: 'tilgjengelighet.tiltak', endret: 8, label: 'Hvilke tiltak skal {du} gjennomføre?', beskrivelse: 'Velg minst 1.',
+        feil: 'Velg hvilke tiltak {du} skal gjennomføre.',
+        valg: [
+          { v: 'TRINNFRI_ADKOMST', l: 'Trinnfri adkomstvei' },
+          { v: 'INNGANGSPARTI', l: 'Oppgradering av inngangsdør eller -parti' },
+          { v: 'OVERBYGD_INNGANG', l: 'Overbygd inngangsparti med plass til vogn' },
+          { v: 'INNGANGSPLAN', l: 'Endret inngangsplan' },
+          { v: 'TERSKELFRIE_DORER', l: 'Terskelfrie døråpninger' },
+          { v: 'TILGJENGELIG_BAD', l: 'Tilgjengelig bad' },
+          { v: 'ANNET', l: 'Annet' }
+        ] },
+      { type: 'tekstomrade', felt: 'tilgjengelighet.annet', endret: 8, synlig: d => har(d, 'tilgjengelighet.tiltak', 'ANNET'), maks: 1000,
+        label: 'Beskriv tiltaket', feil: 'Beskriv tiltaket {du} skal gjennomføre.',
+        feilMaks: 'Beskrivelsen av tiltaket må være på 1000 tegn eller mindre.' },
+      ...garasjeElementer(),
+      { type: 'vedleggskrav', krav: ['boligkvalitet.fasadeplansnittvedlegg', 'boligkvalitet.situasjonsplanvedlegg', 'boligkvalitet.byggebeskrivelsevedlegg',
+        'boligkvalitet.kontraktvedlegg', 'boligkvalitet.rammetillatelsevedlegg', 'bolig.mottarstoettenavbilvedlegg'] }
+    ]
+  },
+
+  /* ─── Flyt 2 og 3: energi ─────────────────────────────────────── */
+  {
+    id: 'tiltakenergi',
+    synlig: erEnergi,
+    tittel: 'Velg tiltak',
+    elementer: [
+      { type: 'radio', felt: 'energivei', endret: 9, label: 'Hvordan skal boligen bli mer energieffektiv?',
+        feil: 'Velg om {du} skal forbedre energikarakteren eller redusere energiforbruket.',
+        valg: [
+          { v: 'ENERGIVEI_KARAKTER', l: 'Forbedre energikarakteren', b: 'Boligen må bli én eller to karakterer bedre, avhengig av karakteren i dag.' },
+          { v: 'ENERGIVEI_FORBRUK', l: 'Redusere energiforbruket med minst 30 prosent', b: 'En energirådgiver må beregne hvor mye forbruket går ned.' }
+        ] },
+      { type: 'lesmer', endret: 9, tittel: 'Dette er forskjellen på energikarakter og redusert energiforbruk', html: () => tx(`
+        <p><b>Energikarakteren</b> står på energiattesten for boligen og går fra A til G, der A er best. Den viser hvor mye energi boligen trenger sammenlignet med andre boliger, ut fra blant annet isolasjon, vinduer og oppvarming.</p>
+        <p><b>Redusert energiforbruk</b> viser hvor mye mindre energi akkurat denne boligen bruker etter oppgraderingen. En energirådgiver beregner det i et effektregnskap.</p>
+        <p>Velg energikarakter hvis oppgraderingen løfter boligen nok karakterer. Velg redusert energiforbruk hvis boligen bruker mye mindre energi, men ikke går opp nok karakterer.</p>`) },
+      { type: 'panel', variant: 'bla', ikon: true, endret: 10, synlig: erEnergikarakter, html: `<p class="lan-fet">Vi anbefaler å bruke en energirådgiver</p>
+        <p>En energirådgiver kan vurdere hvilke tiltak som gir best effekt, og hvilken energikarakter boligen kan få etter oppgraderingen. Det finnes også energikalkulatorer på nett som kan gi {deg} et anslag.</p>` },
+      { type: 'panel', variant: 'bla', ikon: true, endret: 10, synlig: erEnergiforbruk, html: `<p class="lan-fet">{Du} må bruke en energirådgiver</p>
+        <p>For å få lån må en energirådgiver beregne hvor mye energiforbruket i boligen går ned. {Du} laster opp uttalelsen fra energirådgiveren og effektregnskapet senere i søknaden.</p>` },
+      { type: 'avkrysning', felt: 'energi.tiltak', endret: 11, label: 'Hvilke tiltak skal {du} gjennomføre?',
+        beskrivelse: 'Her er noen vanlige tiltak. Velg de som passer, eller velg Annet og beskriv tiltaket.',
+        feil: 'Velg hvilke tiltak {du} skal gjennomføre.',
+        valg: [
+          { v: 'ETTERISOLERE_VEGGER', l: 'Etterisolere yttervegger' },
+          { v: 'ETTERISOLERE_TAK', l: 'Etterisolere tak eller loft' },
+          { v: 'VINDUER_DORER', l: 'Bytte vinduer og ytterdører' },
+          { v: 'VARMEPUMPE', l: 'Installere varmepumpe' },
+          { v: 'VENTILASJON', l: 'Installere balansert ventilasjon med varmegjenvinning' },
+          { v: 'ANNET', l: 'Annet' }
+        ] },
+      { type: 'tekstomrade', felt: 'energi.annet', endret: 11, synlig: d => har(d, 'energi.tiltak', 'ANNET'), maks: 1000,
+        label: 'Beskriv tiltaket', feil: 'Beskriv tiltaket {du} skal gjennomføre.',
+        feilMaks: 'Beskrivelsen av tiltaket må være på 1000 tegn eller mindre.' },
+      ...garasjeElementer(),
+      { type: 'vedleggskrav', endret: 12, krav: ['boligkvalitet.fasadeplansnittvedlegg', 'boligkvalitet.byggebeskrivelsevedlegg',
+        'energi.energiattestvedlegg', 'energi.uttalelsevedlegg', 'energi.effektregnskapvedlegg', 'bolig.mottarstoettenavbilvedlegg'] }
     ]
   },
   {
-    id: 'klimagassavtrykk',
-    tittel: 'Klimagassavtrykk',
+    id: 'energimerkesteg',
+    synlig: erEnergikarakter,
+    tittel: 'Energimerke',
     elementer: [
-      { type: 'tall', felt: 'klima.klimagassavtrykk', endret: 9, enhet: CO2_ENHET,
-        label: 'Hva er antatt kg CO₂-ekv./m² BTA på prosjektet?',
-        feil: 'Skriv antatt klimagassavtrykk for prosjektet.',
-        feilTall: 'Klimagassavtrykket kan bare være tall, for eksempel 150.',
-        advarsel: (v, d) => (heltall(v) && api.num(v) > co2Grense(d)
-          ? `For å kvalifisere til dette lånet må CO₂-utslippet være ${co2Grense(d)} ${CO2_ENHET} eller lavere.` : null) },
-      { type: 'lesmer', endret: 15, tittel: 'Dette er kg CO₂-ekv./m² BTA', html: d => tx(`
-        <p>Tallet viser hvor store klimagassutslipp boligen gir, fordelt på hver kvadratmeter.</p>
-        <ul>
-          <li><b>kg CO₂-ekv.</b> betyr kilo CO₂-ekvivalenter. Alle klimagassene regnes om til den mengden CO₂ som gir samme effekt på klimaet, så de kan legges sammen.</li>
-          <li><b>m² BTA</b> er bruttoarealet til boligen, det samme arealet {du} oppgir på steget Boligen.</li>
-        </ul>
-        <p class="lan-mb0">Slik regnes det ut:</p>
-        <p class="lan-fet">Samlede klimagassutslipp i kg CO₂-ekv. ÷ BTA i m²</p>
-        <p>For eksempel gir 150 000 kg CO₂-ekv. for en bolig på 1 000 m² BTA et klimagassavtrykk på 150 kg CO₂-ekv./m² BTA.</p>
-        <p>{Du} finner tallet i klimagassbudsjettet for prosjektet, som er laget etter NS 3720:2018. For å få lånet må tallet være ${co2Grense(d)} eller lavere${d['bolig.oppvarmetkjeller'] === true ? ', siden kjelleren skal være oppvarmet' : d['bolig.oppvarmetkjeller'] === false ? ', siden kjelleren ikke skal være oppvarmet' : ''}.</p>`) }
+      { type: 'ingress', endret: 13, tekst: 'For å vurdere om oppgraderingen gir stor nok forbedring, trenger vi å vite energimerket på boligen før og etter oppgraderingen.' },
+      { type: 'radio', felt: 'energi.karakterfoer', rad: true, label: 'Hva er energimerket på boligen i dag?', valg: KARAKTERVALG,
+        feil: 'Velg hva energimerket på boligen er i dag.' },
+      { type: 'radio', felt: 'energi.karakteretter', rad: true, label: 'Hva blir energimerket etter oppgraderingen?', valg: KARAKTERVALG,
+        feil: 'Velg hva energimerket blir etter oppgraderingen.' },
+      { type: 'tekst', live: true, endret: 13, synlig: d => !!energikarakterAvvik(d), html: d => tx(avslagPanel(energikarakterAvvik(d)), d) },
+      { type: 'lesmer', tittel: 'Dette er kravene til energimerket', html: `<ul class="lan-mb0">
+          <li>Vi gir bare lån til boliger som har energikarakter C eller dårligere før oppgraderingen.</li>
+          <li>Boliger med energikarakter C, D eller E må bli minst én karakter bedre.</li>
+          <li>Boliger med energikarakter F eller G må bli minst to karakterer bedre.</li>
+        </ul>` }
     ]
   },
   {
-    id: 'klimagassbudsjett',
-    tittel: 'Klimagass&shy;budsjett',
+    id: 'energiforbruksteg',
+    synlig: erEnergiforbruk,
+    tittel: 'Redusert energiforbruk',
     elementer: [
-      { type: 'ingress', tekst: 'For å få lån krever vi at det er laget et klimagassbudsjett for prosjektet. Budsjettet viser hvor store klimagassutslipp boligen er beregnet å gi, og det må være laget etter Norsk Standard NS 3720:2018.' },
-      { type: 'tekst', html: '<p style="margin-bottom:var(--space-6)">Budsjettet lages vanligvis av en klimarådgiver, arkitekten eller entreprenøren. {Du} laster det opp senere i søknaden.</p>' },
-      { type: 'janei', felt: 'klima.harklimabudsjett', endret: 10,
-        label: 'Er det blitt utformet et klimabudsjett for prosjektet etter NS 3720:2018?',
-        feil: 'Velg om det er utformet et klimabudsjett for prosjektet.',
-        advarsel: v => (v === false
-          ? 'Uten et klimabudsjett etter NS 3720:2018 kvalifiserer {du} ikke til dette lånet. {Du} må få laget budsjettet før {du} søker.' : null) },
-      { type: 'vedleggskrav', krav: ['klima.klimabudsjettvedlegg'] }
+      { type: 'ingress', endret: 14, tekst: 'For å få lån må oppgraderingen redusere energiforbruket i boligen med minst 30 prosent.' },
+      { type: 'panel', variant: 'bla', ikon: true, endret: 14, html: '<p>{Du} må bruke en energirådgiver. Energirådgiveren beregner reduksjonen i et effektregnskap etter NS 3031:2025.</p>' },
+      { type: 'tall', felt: 'energi.reduksjonprosent', endret: 14, enhet: 'prosent', maks: 100,
+        label: 'Hvor mange prosent reduksjon i boligens energiforbruk forventer {du}?',
+        beskrivelse: 'Tallet står i uttalelsen fra energirådgiveren.',
+        feil: 'Skriv hvor mange prosent {du} forventer at energiforbruket går ned.',
+        feilTall: 'Reduksjonen kan bare være tall, for eksempel 35.', feilMaks: 'Reduksjonen kan ikke være mer enn 100 prosent.' },
+      { type: 'tekst', live: true, endret: 14, synlig: d => heltall(d['energi.reduksjonprosent'] ?? '') && api.num(d['energi.reduksjonprosent']) < 30,
+        html: d => tx(avslagPanel('Energiforbruket må gå ned med minst 30 prosent for å få lån.'), d) }
     ]
   },
 
@@ -461,20 +574,14 @@ const SKJEMA_STEG = [
     id: 'gardogbruksnummersteg',
     tittel: 'Gårds- og bruksnummer',
     elementer: [
-      { type: 'ingress', tekst: 'For å vite hvor {du} skal bygge, trenger vi gårds- og bruksnummeret til eiendommen.' },
+      { type: 'ingress', tekst: 'For å vite hvilken bolig {du} skal oppgradere, trenger vi gårds- og bruksnummeret til eiendommen.' },
       { type: 'kommune', felt: 'bolig.kommunenavn', label: 'Hvilken kommune ligger eiendommen i?',
         beskrivelse: 'Skriv navnet på kommunen og velg kommunen fra listen.', feil: 'Velg hvilken kommune eiendommen ligger i.' },
-      { type: 'janei', felt: 'bolig.harGnrBnr', label: 'Har eiendommen et gårds- og bruksnummer?', nei: 'Nei, ikke ennå',
-        feil: 'Velg om eiendommen har et gårds- og bruksnummer.' },
-      { type: 'panel', variant: 'bla', synlig: d => d['bolig.harGnrBnr'] === false,
-        html: '<p>Husk å gi oss beskjed når eiendommen har fått et gårds- og bruksnummer.</p>' },
-      { type: 'gruppe', synlig: d => d['bolig.harGnrBnr'] === true, elementer: [
-        { type: 'tall', felt: 'bolig.gnr', label: 'Gårdsnummer', feil: 'Skriv gårdsnummeret.', feilTall: 'Gårdsnummeret kan bare være tall, for eksempel 12.' },
-        { type: 'tall', felt: 'bolig.bnr', label: 'Bruksnummer', feil: 'Skriv bruksnummeret.', feilTall: 'Bruksnummeret kan bare være tall, for eksempel 12.' },
-        { type: 'tall', felt: 'bolig.festenr', label: 'Festenummer (valgfritt)', valgfri: true, feilTall: 'Festenummeret kan bare være tall, for eksempel 12.' },
-        { type: 'tall', felt: 'bolig.seksjonsnr', label: 'Seksjonsnummer (valgfritt)', valgfri: true, feilTall: 'Seksjonsnummeret kan bare være tall, for eksempel 12.' },
-        { type: 'tekst', html: `<p>Vet du ikke hva gårds- og bruksnummeret er? Du kan finne det ved å søke opp eiendommen i ${ekstern('https://eiendomsregisteret.kartverket.no/', 'Eiendomsregisteret')}</p>` }
-      ] }
+      { type: 'tall', felt: 'bolig.gnr', label: 'Gårdsnummer', feil: 'Skriv gårdsnummeret.', feilTall: 'Gårdsnummeret kan bare være tall, for eksempel 12.' },
+      { type: 'tall', felt: 'bolig.bnr', label: 'Bruksnummer', feil: 'Skriv bruksnummeret.', feilTall: 'Bruksnummeret kan bare være tall, for eksempel 12.' },
+      { type: 'tall', felt: 'bolig.festenr', label: 'Festenummer (valgfritt)', valgfri: true, feilTall: 'Festenummeret kan bare være tall, for eksempel 12.' },
+      { type: 'tall', felt: 'bolig.seksjonsnr', label: 'Seksjonsnummer (valgfritt)', valgfri: true, feilTall: 'Seksjonsnummeret kan bare være tall, for eksempel 12.' },
+      { type: 'tekst', html: `<p>Vet du ikke hva gårds- og bruksnummeret er? Du kan finne det ved å søke opp eiendommen i ${ekstern('https://eiendomsregisteret.kartverket.no/', 'Eiendomsregisteret')}</p>` }
     ]
   },
   {
@@ -484,22 +591,18 @@ const SKJEMA_STEG = [
       { type: 'radio', felt: 'eierskaptomt', label: 'Eier {du} tomten?', feil: 'Velg om {du} eier tomten.', valg: EIERSKAP },
       { type: 'tekstomrade', felt: 'eierskaptomtannet', synlig: d => d.eierskaptomt === 'EIERSKAP_TOMT_ANNET',
         label: 'Hva er situasjonen for tomten?', feil: 'Beskriv situasjonen for tomten.' },
-      { type: 'vedleggskrav', krav: ['utkastkjopekontraktellerfesteavtalevedlegg', 'festeavtalevedlegg'] }
+      { type: 'vedleggskrav', krav: ['festeavtalevedlegg'] }
     ]
   },
   {
     id: 'boligsteg',
     tittel: 'Boligen',
     elementer: [
-      { type: 'tall', felt: 'bolig.stoerrelse', endret: 11, enhet: 'kvadratmeter', min: 1,
-        label: 'Hvor stor blir boligen, målt i kvadratmeter BTA?', feil: 'Skriv hvor stor boligen blir.',
-        feilTall: 'Størrelsen på boligen kan bare være tall, for eksempel 84.',
-        advarsel: v => (heltall(v) && api.num(v) >= 1000
-          ? 'Som privatperson kan du kun oppføre boliger som er under 1000 kvm for å få dette lånet.' : null) },
-      { type: 'lesmer', endret: 11, tittel: 'Dette er BTA', html: '<p>BTA betyr bruttoareal. Det er hele arealet i boligen, målt til utsiden av ytterveggene, i alle etasjer. Kjeller og loft regnes med, og det samme gjør arealet veggene tar opp. En garasje, bod eller et anneks som står for seg selv, regnes ikke med.</p>' },
-      { type: 'janei', felt: 'bolig.oenskergarasje', label: 'Ønsker {du} at lånet også skal dekke bygging av garasje?',
-        feil: 'Velg om lånet også skal dekke bygging av garasje.' },
-      { type: 'tall', felt: 'bolig.garasjestoerrelse', synlig: d => d['bolig.oenskergarasje'] === true, enhet: 'kvadratmeter', min: 1,
+      { type: 'tall', felt: 'bolig.stoerrelse', enhet: 'kvadratmeter', min: 1,
+        label: 'Hvor stor blir boligen innvendig, målt i kvadratmeter BRA-i?', feil: 'Skriv hvor stor boligen blir innvendig.',
+        feilTall: 'Størrelsen på boligen kan bare være tall, for eksempel 84.' },
+      { type: 'lesmer', tittel: 'Dette er BRA-i', html: '<p>BRA-i betyr internt bruksareal. Det er arealet innenfor ytterveggene i boligen, i alle etasjer. Innvendige vegger regnes med, men ikke boder og andre rom som ligger utenfor selve boligen.</p>' },
+      { type: 'tall', felt: 'bolig.garasjestoerrelse', synlig: harGarasje, enhet: 'kvadratmeter', min: 1,
         label: 'Hvor stor blir garasjen innvendig, målt i kvadratmeter?', feil: 'Skriv hvor stor garasjen blir innvendig.',
         feilTall: 'Størrelsen på garasjen kan bare være tall, for eksempel 40.' },
       { type: 'avkrysning', felt: 'bolig.bruksomraade', label: 'Hvordan kommer {du} til å bruke boligen?',
@@ -541,26 +644,37 @@ const SKJEMA_STEG = [
     tittel: 'Prosjektkostnader',
     elementer: [
       { type: 'ingress', tekst: 'I de neste stegene ber vi deg oppgi kostnadene {du} regner med for prosjektet. Summen av kostnadene påvirker hvor mye {du} kan få i lån.' },
-      { type: 'panel', variant: 'bla', ikon: true, endret: 12, html: d => `
+      { type: 'panel', variant: 'bla', ikon: true, endret: 15, html: d => `
         <p>Du vil bli bedt om å fylle ut, hver for seg, kostnader til</p>
-        ${liste([kjoeperTomt(d) && 'kjøp av tomten', 'utendørs arbeid', 'byggekostnader', 'klimarådgivning', 'prosjektering, gebyrer og avgifter', 'lånekostnader', 'buffer til uforutsette kostnader'].filter(Boolean))}
+        ${liste(['oppgraderingskostnader', erEnergi(d) && 'energirådgiver', 'utendørs arbeid', 'prosjektering, gebyrer og avgifter', 'lånekostnader', 'buffer til uforutsette kostnader'].filter(Boolean))}
         <p>${tx('Oppgi både kostnader {du} regner med, og kostnader {du} allerede har betalt.')}</p>` },
       { type: 'tekst', html: '<p class="lan-sekundaer">Når {du} søker, må {du} ha et budsjett med prosjektkostnader, basert på kontrakt og pristilbud fra entreprenøren. Kontakt entreprenøren hvis {du} mangler noen av kostnadene.</p>' }
     ]
   },
   {
-    id: 'kjoepavtomtensteg',
-    synlig: kjoeperTomt,
-    tittel: 'Kjøp av tomten',
+    id: 'oppgraderingskostnader',
+    tittel: 'Oppgraderings&shy;kostnader',
     elementer: [
-      { type: 'ingress', tekst: 'Kjøpesummen regnes med i prosjektkostnadene.' },
-      { type: 'panel', variant: 'gra', html: d => `<p>Du har tidligere svart</p>
-        <p class="lan-fet lan-mb0">${tx('Eier {du} tomten?')}</p>
-        <p>${tx((EIERSKAP.find(o => o.v === d.eierskaptomt) || {}).l)}</p>` },
-      { type: 'belop', felt: 'kostnader.kjoepesumtomt', synlig: d => d.eierskaptomt === 'EIERSKAP_TOMT_JA',
-        label: 'Hva var kjøpesummen for tomten?', feil: 'Skriv hva kjøpesummen for tomten var.' },
-      { type: 'belop', felt: 'kostnader.antattkjoepesumtomt', synlig: d => d.eierskaptomt === 'EIERSKAP_TOMT_FREMTIDIG_KJOEP',
-        label: 'Hvor mye regner {du} med å betale for tomten?', feil: 'Skriv hvor mye {du} regner med å betale for tomten.' }
+      { type: 'ingress', tekst: 'Skriv hvor store kostnader {du} regner med for å gjennomføre de valgte tiltakene.' },
+      { type: 'belop', felt: 'kostnader.oppgradering', enhet: 'kroner inkludert mva.',
+        label: 'Hvor store kostnader regner {du} med for oppgraderingen?',
+        beskrivelse: 'Tips: {Du} kan få et anslag på kostnadene fra de som skal utføre arbeidet.',
+        feil: 'Skriv hvor store kostnader {du} regner med for oppgraderingen.' },
+      { type: 'belop', felt: 'kostnader.byggegarasje', enhet: 'kroner inkludert mva.', synlig: harGarasje,
+        label: 'Hvor store kostnader regner {du} med for å bygge garasjen?', feil: 'Skriv hvor store kostnader {du} regner med for å bygge garasjen.' },
+      { type: 'panel', variant: 'bla', ikon: true, endret: 16, html: d => tx(`<p>Lånet skal i all hovedsak gå til ${tiltakstype(d)}, men en begrenset del av lånet kan gå til andre oppgraderinger som gir boligen en moderne standard.</p>
+        <p>Oppgi derfor alle kostnadene {du} har i prosjektet. Saksbehandleren vurderer de andre kostnadene i dialog med {deg}.</p>`, d) },
+      { type: 'janei', felt: 'kostnader.harandreoppgraderinger', endret: 17,
+        label: d => `Planlegger {du} å gjøre noe annet enn ${tiltakstype(d)} samtidig?`,
+        beskrivelse: 'For eksempel nytt kjøkken eller nye overflater.',
+        feil: 'Velg om {du} planlegger å gjøre andre oppgraderinger samtidig.' },
+      { type: 'gruppe', synlig: d => d['kostnader.harandreoppgraderinger'] === true, elementer: [
+        { type: 'belop', felt: 'kostnader.andreoppgraderinger', endret: 17, enhet: 'kroner inkludert mva.', min: 1,
+          label: 'Hvor mye vil de andre oppgraderingskostnadene være?', feil: 'Skriv hvor mye de andre oppgraderingskostnadene vil være.' },
+        { type: 'tekstomrade', felt: 'kostnader.andreoppgraderingerbeskrivelse', endret: 17, maks: 1000,
+          label: 'Beskriv de andre oppgraderingene', beskrivelse: 'Skriv hva som skal gjøres, og gjerne hva beløpet er basert på.',
+          feil: 'Beskriv de andre oppgraderingene.', feilMaks: 'Beskrivelsen må være på 1000 tegn eller mindre.' }
+      ] }
     ]
   },
   {
@@ -575,29 +689,14 @@ const SKJEMA_STEG = [
     ]
   },
   {
-    id: 'byggekostnadersteg',
-    tittel: 'Byggekostnader',
+    id: 'energiraadgivningsteg',
+    synlig: erEnergi,
+    tittel: 'Kostnader til energi&shy;rådgiver',
     elementer: [
-      { type: 'ingress', tekst: 'Skriv hvor store kostnader {du} regner med for råbygg, innvendig arbeid og tekniske installasjoner.' },
-      { type: 'lesmer', tittel: 'Eksempler på kostnader', html: `<ul>
-          <li>råbygg</li>
-          <li>innvendig arbeid${liste(['tak', 'gulv', 'vegger', 'trapper', 'fast inventar'], 'lan-mb0')}</li>
-          <li>tekniske installasjoner${liste(['elektrisk arbeid, inkludert internett', 'VVS', 'ventilasjon', 'oppvarming', 'brann- og sikkerhetsanlegg'], 'lan-mb0')}</li>
-        </ul>
-        <p>Offentlige gebyrer og kostnader til byggestrøm og avfallshåndtering kommer på neste steg.</p>` },
-      { type: 'belop', felt: 'kostnader.byggehus', enhet: 'kroner inkludert mva.',
-        label: 'Hvor store kostnader regner {du} med for å bygge huset?', feil: 'Skriv hvor store kostnader {du} regner med for å bygge huset.' },
-      { type: 'belop', felt: 'kostnader.byggegarasje', enhet: 'kroner inkludert mva.', synlig: d => d['bolig.oenskergarasje'] === true,
-        label: 'Hvor store kostnader regner {du} med for å bygge garasjen?', feil: 'Skriv hvor store kostnader {du} regner med for å bygge garasjen.' }
-    ]
-  },
-  {
-    id: 'klimaraadgivningsteg',
-    tittel: 'Kostnader knyttet til utarbeidelse av klimagass&shy;regnskap og -budsjett',
-    elementer: [
-      { type: 'ingress', tekst: 'Skriv hvor store kostnader {du} regner med til klimarådgivning.' },
-      { type: 'belop', felt: 'kostnader.klimaraadgivning', endret: 13, enhet: 'kroner inkludert mva.',
-        label: 'Hvor store kostnader regner {du} med til klimarådgivning?', feil: 'Skriv hvor store kostnader {du} regner med til klimarådgivning.' }
+      { type: 'ingress', endret: 18, tekst: 'Skriv hvor store kostnader {du} regner med til energirådgiver, for eksempel for energiattest, uttalelse og effektregnskap.' },
+      { type: 'belop', felt: 'kostnader.energiraadgivning', endret: 18, enhet: 'kroner inkludert mva.',
+        label: 'Hvor store kostnader regner {du} med til energirådgiver?', beskrivelse: 'Hvis {du} ikke har kostnader til energirådgiver, skriv: 0',
+        feil: 'Skriv hvor store kostnader {du} regner med til energirådgiver.' }
     ]
   },
   {
@@ -662,14 +761,13 @@ const SKJEMA_STEG = [
       { type: 'ingress', tekst: 'Sjekk at tallene er riktige før du går videre til neste steg.' },
       { type: 'panel', variant: 'gra', html: d => `<p class="lan-mb0">Totale prosjektkostnader inkludert buffer</p>
         <p class="lan-stor-tall">${lanKr(bufferUtregning(d).totaleProsjektKostnader)}</p>` },
-      { type: 'panel', variant: 'bla', html: d => {
-        const tomt = d['kostnader.kjoepesumtomt'] ?? d['kostnader.antattkjoepesumtomt'];
+      { type: 'panel', variant: 'bla', endret: 19, html: d => {
         const linjer = [
-          ['Kjøpesum for tomten', tomt, false, 'kjoepavtomtensteg'],
+          ['Oppgraderingskostnader', d['kostnader.oppgradering'] ?? 0, true, 'oppgraderingskostnader'],
+          ['Andre oppgraderinger', d['kostnader.andreoppgraderinger'], true, 'oppgraderingskostnader'],
+          ['Bygge garasjen', d['kostnader.byggegarasje'], true, 'oppgraderingskostnader'],
+          ['Energirådgiver', d['kostnader.energiraadgivning'], true, 'energiraadgivningsteg'],
           ['Utendørs arbeid', d['kostnader.utendoersarbeid'], true, 'utendoerskostnader'],
-          ['Bygge huset', d['kostnader.byggehus'] ?? 0, true, 'byggekostnadersteg'],
-          ['Bygge garasjen', d['kostnader.byggegarasje'], true, 'byggekostnadersteg'],
-          ['Klimarådgivning', d['kostnader.klimaraadgivning'], true, 'klimaraadgivningsteg'],
           ['Prosjektering, gebyrer og avgifter', d['kostnader.prosjektering'], true, 'prosjekteringsteg'],
           ['Lånekostnader', d['kostnader.laanefinansiering'] ?? 0, false, 'lanekostnader'],
           ['Buffer til uforutsette kostnader', bufferUtregning(d).bufferVerdi, false, 'buffer']
@@ -706,7 +804,7 @@ const SKJEMA_STEG = [
       { type: 'tekstomrade', felt: 'oekonomi.egenkapital.beskrivannet', synlig: d => har(d, 'oekonomi.egenkapital.kilde', 'EGENKAPITAL_ANNET'), maks: 1000,
         label: 'Beskriv hvor annen egenkapital vil komme fra', feil: 'Beskriv hvor annen egenkapital vil komme fra.',
         feilMaks: 'Beskrivelsen av hvor annen egenkapital vil komme fra må være på 1000 tegn eller mindre.' },
-      { type: 'janei', felt: 'oekonomi.planleggerlaanfraandre', label: 'Skal {du} ta opp andre lån for å finansiere boligen?',
+      { type: 'janei', felt: 'oekonomi.planleggerlaanfraandre', label: 'Skal {du} ta opp andre lån for å finansiere oppgraderingen?',
         feil: 'Velg om det skal tas opp andre lån som en del av finansieringen.' },
       { type: 'belop', felt: 'oekonomi.laanfraandre', synlig: d => d['oekonomi.planleggerlaanfraandre'] === true, min: 1,
         label: 'Hvor mye av kostnadene planlegger {du} å finansiere med andre lån?', feil: 'Skriv hvor mye som skal finansieres med andre lån.' },
