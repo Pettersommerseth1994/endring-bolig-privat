@@ -1,0 +1,23 @@
+/* ──────────────────────────────────────────────────────────────────
+   Versjonsboksen i prototypen
+
+   Bygger på boksen fra papirsøknadene, ../../assets/css/hb-versjoner.css.
+   Her ligger den nede til venstre, fordi toppen er opptatt av stripa og
+   headeren. Lastes av alle versjonene, så boksen ser lik ut i alle.
+   ────────────────────────────────────────────────────────────────── */
+
+.versjoner { top: auto; bottom: 16px; }
+
+/* Nummeret står i data-endret, ikke teksten som i papirsøknadene */
+body.viser-endringer [data-endret]::before { content: attr(data-endret); }
+
+/* Når det ikke er plass ved siden av innholdet, legger boksen seg i
+   flyten under headeren i stedet for oppå skjemaet. */
+@media screen and (max-width: 1200px) {
+  .versjoner {
+    position: static;
+    width: min(var(--lan-bredde), calc(100% - 2 * var(--space-3)));
+    margin: var(--space-4) auto 0;
+  }
+  .versjoner__liste { max-height: none; }
+}
