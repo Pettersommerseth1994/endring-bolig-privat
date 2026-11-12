@@ -47,7 +47,7 @@ const LAN_VERSJONER = [
       { side: 'soknad.html', steg: 'energimerkesteg', tekst: 'Flyt 2: justert tekst, og sjekk av at energikarakteren blir god nok. Søkeren stoppes ikke, men får beskjed om mulig avslag.' },
       { side: 'soknad.html', steg: 'energiforbruksteg', tekst: 'Flyt 3, nytt steg: hvor mange prosent lavere energiforbruk, med beskjed om mulig avslag under 30 prosent.' },
       { side: 'soknad.html', steg: 'prosjektkostnadersteg', tekst: 'Energirådgiver er med i lista over kostnader på energiveien.' },
-      { side: 'soknad.html', steg: 'oppgraderingskostnader', tekst: 'Hjelpetekst om at alle kostnader bør oppgis, og at saksbehandleren vurderer de andre kostnadene.' },
+      { side: 'soknad.html', steg: 'oppgraderingskostnader', tekst: 'Hjelpetekst om at alle kostnader bør oppgis.' },
       { side: 'soknad.html', steg: 'oppgraderingskostnader', tekst: 'Nytt: andre oppgraderinger samtidig, med beløp og fritekst.' },
       { side: 'soknad.html', steg: 'energiraadgivningsteg', tekst: 'Nytt steg på energiveien: kostnader til energirådgiver.' },
       { side: 'soknad.html', steg: 'totaleprosjektkostnader', tekst: 'Andre oppgraderinger og energirådgiver er med i totalen og bufferen.' },

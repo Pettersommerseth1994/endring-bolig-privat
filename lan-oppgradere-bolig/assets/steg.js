@@ -72,7 +72,7 @@ const EIERSKAP = [
 /* Energikarakteren går fra A, som er best, til G. Boligen må ha C eller
    dårligere i dag. C, D og E må bli minst én karakter bedre, F og G minst
    to. Et svar som ikke holder, stopper ikke søkeren, men gir beskjed om at
-   søknaden mest sannsynlig blir avslått. */
+   søknaden blir avslått. */
 const KARAKTERER = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 const KARAKTERVALG = [...KARAKTERER.map(k => ({ v: k, l: k })), { v: 'VET_IKKE', l: 'Vet ikke' }];
 
@@ -94,7 +94,7 @@ function energikarakterAvvik(d) {
 }
 
 const avslagPanel = melding => `<div class="lan-panel lan-panel--gul" role="status">
-  <p class="lan-fet lan-mb0">Søknaden blir mest sannsynlig avslått</p>
+  <p class="lan-fet lan-mb0">Søknaden blir avslått</p>
   <p>${melding} {Du} kan likevel sende inn søknaden.</p></div>`;
 
 const ANTALL_BILER = [
@@ -663,7 +663,7 @@ const SKJEMA_STEG = [
       { type: 'belop', felt: 'kostnader.byggegarasje', enhet: 'kroner inkludert mva.', synlig: harGarasje,
         label: 'Hvor store kostnader regner {du} med for å bygge garasjen?', feil: 'Skriv hvor store kostnader {du} regner med for å bygge garasjen.' },
       { type: 'panel', variant: 'bla', ikon: true, endret: 16, html: d => tx(`<p>Lånet skal i all hovedsak gå til ${tiltakstype(d)}, men en begrenset del av lånet kan gå til andre oppgraderinger som gir boligen en moderne standard.</p>
-        <p>Oppgi derfor alle kostnadene {du} har i prosjektet. Saksbehandleren vurderer de andre kostnadene i dialog med {deg}.</p>`, d) },
+        <p>Oppgi derfor alle kostnadene {du} har i prosjektet.</p>`, d) },
       { type: 'janei', felt: 'kostnader.harandreoppgraderinger', endret: 17,
         label: d => `Planlegger {du} å gjøre noe annet enn ${tiltakstype(d)} samtidig?`,
         beskrivelse: 'For eksempel nytt kjøkken eller nye overflater.',

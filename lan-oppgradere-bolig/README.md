@@ -24,7 +24,7 @@ På steget Tiltak velger søkeren hva lånet skal gå til:
 
 Energiveien har i tillegg et eget steg for kostnader til energirådgiver, og
 egne vedleggskrav. Svar som ikke kvalifiserer, stopper ikke søkeren, men gir
-beskjed om at søknaden mest sannsynlig blir avslått.
+beskjed om at søknaden blir avslått.
 
 ## Åpne spørsmål fra tavla
 
